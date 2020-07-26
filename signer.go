@@ -5,55 +5,46 @@ import (
 	"strconv"
 	"sync"
 )
+
 type StrArr []string
 
 func (a StrArr) Len() int {
 	return len(a)
 }
-func (a StrArr)Less(i, j int) bool {
+func (a StrArr) Less(i, j int) bool {
 	return a[i] < a[j]
 }
-func (a StrArr)Swap(i, j int) {
-	a[i],a[j] = a[j], a[i]
+func (a StrArr) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
 }
 
 // сюда писать код
 func ExecutePipeline(jobs ...job) {
 	floatChannels := len(jobs) - 1
-	
-	channels := make([]chan interface{}, 0, floatChannels)
-	firstIn := make(chan interface{}, 1)
-	lastOut := make(chan interface{}, 1)
-	wg := &sync.WaitGroup{}
-	for i := 0; i < len(jobs); i++ {
-		if (i < len(jobs) - 1) {
-			channels = append(channels, make(chan interface{}))
-		}
-		if i == 0 {
-			wg.Add(1)
-			go func(num int) {
-				defer wg.Done()
-				jobs[num](firstIn, channels[num])
-				close(channels[num])
-			}(i)
-		} else if (i < len(jobs) - 1) {
-			wg.Add(1)
-			go func(num int) {
-				defer wg.Done()
-				jobs[num](channels[num - 1], channels[num])
-				close(channels[num])
-			}(i)
-		} else {
-			wg.Add(1)
-			go func (num int) {
-				defer wg.Done()
-				jobs[num](channels[num - 1], lastOut)
-			}(i)
+
+	pipelineItem := func(wg *sync.WaitGroup, job job, in, out chan interface{}) {
+		defer wg.Done()
+		job(in, out)
+		if out != nil {
+			close(out)
 		}
 	}
-	close(firstIn)
+	channels := make([]chan interface{}, 0, floatChannels)
+	wg := &sync.WaitGroup{}
+	for i := 0; i < len(jobs); i++ {
+		if i < floatChannels {
+			channels = append(channels, make(chan interface{}))
+		}
+		wg.Add(1)
+		if i == 0 {
+			go pipelineItem(wg, jobs[i], nil, channels[i])
+		} else if i < floatChannels {
+			go pipelineItem(wg, jobs[i], channels[i-1], channels[i])
+		} else {
+			go pipelineItem(wg, jobs[i], channels[i-1], nil)
+		}
+	}
 	wg.Wait()
-	close(lastOut)
 }
 
 func SingleHash(in, out chan interface{}) {
