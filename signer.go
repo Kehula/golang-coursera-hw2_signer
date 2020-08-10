@@ -6,18 +6,6 @@ import (
 	"sync"
 )
 
-type StrArr []string
-
-func (a StrArr) Len() int {
-	return len(a)
-}
-func (a StrArr) Less(i, j int) bool {
-	return a[i] < a[j]
-}
-func (a StrArr) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-
 // сюда писать код
 func ExecutePipeline(jobs ...job) {
 	floatChannels := len(jobs) - 1
@@ -101,7 +89,7 @@ func MultiHash(in, out chan interface{}) {
 }
 
 func CombineResults(in, out chan interface{}) {
-	buffer := make(StrArr, 0, 1)
+	buffer := make(sort.StringSlice, 0, 1)
 	for data := range in {
 		buffer = append(buffer, data.(string))
 	}
